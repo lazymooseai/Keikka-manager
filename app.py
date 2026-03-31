@@ -1,7 +1,6 @@
 import streamlit as st
 import re
 import base64
-import io
 
 st.set_page_config(
     page_title="Keikkasetti Manager",
@@ -13,17 +12,12 @@ st.set_page_config(
 st.markdown("""
 <style>
     .song-card {
-        background: #1e1e2e;
-        border: 1px solid #44475a;
-        border-radius: 12px;
-        padding: 16px 20px;
-        margin-bottom: 10px;
+        background: #1e1e2e; border: 1px solid #44475a;
+        border-radius: 12px; padding: 16px 20px; margin-bottom: 10px;
     }
-    .song-number {
-        font-size: 2rem; font-weight: 900;
-        color: #bd93f9; min-width: 48px; display: inline-block;
-    }
-    .song-title  { font-size: 1.2rem; font-weight: 700; color: #f8f8f2; }
+    .song-number { font-size:2rem; font-weight:900; color:#bd93f9;
+                   min-width:48px; display:inline-block; }
+    .song-title  { font-size:1.2rem; font-weight:700; color:#f8f8f2; }
     .song-key    { background:#44475a; color:#50fa7b; border-radius:6px;
                    padding:2px 10px; font-size:0.9rem; font-family:monospace; font-weight:bold; }
     .trans-badge { background:#ff79c6; color:#282a36; border-radius:6px;
@@ -31,14 +25,14 @@ st.markdown("""
     .capo-badge  { background:#ffb86c; color:#282a36; border-radius:6px;
                    padding:2px 10px; font-size:0.85rem; font-weight:bold; margin-left:8px; }
     @media (max-width:600px) {
-        .song-title  { font-size:1rem; }
+        .song-title { font-size:1rem; }
         .song-number { font-size:1.5rem; }
     }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ── PARSER ─────────────────────────────────────────────────────────────
+# ── PARSER ──────────────────────────────────────────────────────────────
 def parse_setlist(text: str) -> list:
     setlist = []
     pattern = r"(\d+)[.\)]\s+(.+?)\s*\|\s*([A-Ga-g][#b]?m?)(.*)$"
@@ -52,50 +46,48 @@ def parse_setlist(text: str) -> list:
             trans = re.search(r"->\s*([A-Ga-g][#b]?m?)", extra)
             capo  = re.search(r"capo\s*(\d+)", extra, re.IGNORECASE)
             setlist.append({
-                "numero":     int(match.group(1)),
-                "biisi":      match.group(2).strip(),
-                "savelaji":   match.group(3).strip(),
+                "numero": int(match.group(1)), "biisi": match.group(2).strip(),
+                "savelaji": match.group(3).strip(),
                 "transponoi": trans.group(1) if trans else None,
-                "capo":       int(capo.group(1)) if capo else None,
+                "capo": int(capo.group(1)) if capo else None,
             })
         else:
             simple = re.match(r"(\d+)[.\)]\s+(.+)$", line)
             if simple:
                 setlist.append({
-                    "numero": int(simple.group(1)),
-                    "biisi":  simple.group(2).strip(),
+                    "numero": int(simple.group(1)), "biisi": simple.group(2).strip(),
                     "savelaji": None, "transponoi": None, "capo": None,
                 })
     return sorted(setlist, key=lambda x: x["numero"])
 
 
-# ── PDF → KUVAT ─────────────────────────────────────────────────────────
+# ── PDF → KUVAT (@cache_data = ei renderöidä uudelleen joka ajokerralla) ─
+@st.cache_data(show_spinner=False)
 def pdf_to_images(pdf_bytes: bytes) -> list:
     import fitz
     images = []
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     for page in doc:
-        mat = fitz.Matrix(2.0, 2.0)
+        # 1.5x resoluutio: riittävä laatu, ei jumi palvelimella
+        mat = fitz.Matrix(1.5, 1.5)
         pix = page.get_pixmap(matrix=mat)
-        img_bytes = pix.tobytes("png")
-        images.append(img_bytes)
+        images.append(pix.tobytes("png"))
     doc.close()
     return images
 
 
-# ── PDF-TEKSTI ──────────────────────────────────────────────────────────
+# ── PDF-TEKSTI ───────────────────────────────────────────────────────────
 def read_pdf_text(file) -> str:
     try:
         import fitz
-        data = file.read()
-        doc = fitz.open(stream=data, filetype="pdf")
+        doc = fitz.open(stream=file.read(), filetype="pdf")
         return "\n".join(page.get_text("text") for page in doc)
     except Exception as e:
         st.error(f"PDF-luku epäonnistui: {e}")
         return ""
 
 
-# ── LATAUSLINKKI ────────────────────────────────────────────────────────
+# ── LATAUSLINKKI ─────────────────────────────────────────────────────────
 def download_link(pdf_bytes: bytes, filename: str):
     b64 = base64.b64encode(pdf_bytes).decode()
     st.markdown(
@@ -120,7 +112,6 @@ tab_set, tab_drive, tab_settings = st.tabs(["📋 Setlista", "☁️ Google Driv
 
 with tab_set:
 
-    # ── SETLISTAN SYÖTTÖ ────────────────────────────────────────────────
     with st.expander("📂 Syötä setlista", expanded=True):
         col1, col2 = st.columns([1, 1])
         with col1:
@@ -151,9 +142,8 @@ with tab_set:
         st.warning("Ei tunnistettuja biisejä — tarkista formaatti.")
         st.stop()
 
-    # ── METRIIKAT ───────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("🎵 Biisiä",           len(setlist))
+    c1.metric("🎵 Biisiä",          len(setlist))
     c2.metric("🔄 Transponoitavia",  sum(1 for x in setlist if x["transponoi"]))
     c3.metric("🎸 Kapotasto",        sum(1 for x in setlist if x["capo"]))
     c4.metric("📄 PDF:t ladattu",    len(st.session_state["pdfs"]))
@@ -171,18 +161,18 @@ with tab_set:
                 )
                 if f is not None:
                     raw_pdf = f.read()
-                    imgs    = pdf_to_images(raw_pdf)
+                    # Spinner näyttää käyttäjälle että prosessi käynnissä
+                    with st.spinner(f"Käsitellään {f.name}..."):
+                        imgs = pdf_to_images(raw_pdf)
                     st.session_state["pdfs"][item["numero"]] = {
-                        "bytes":    raw_pdf,
-                        "filename": f.name,
-                        "images":   imgs,
-                        "pages":    len(imgs)
+                        "bytes": raw_pdf, "filename": f.name,
+                        "images": imgs, "pages": len(imgs)
                     }
-                    st.success(f"✅ {len(imgs)} sivu(a)")
+                    st.success(f"✅ {len(imgs)} sivu(a) ladattu")
 
     st.markdown("### 🎶 Setlista")
 
-    # ── BIISIKORTIT ──────────────────────────────────────────────────────
+    # ── KORTIT ───────────────────────────────────────────────────────────
     for item in setlist:
         num     = item["numero"]
         has_pdf = num in st.session_state["pdfs"]
@@ -198,16 +188,12 @@ with tab_set:
                     <span class="song-number">{num}</span>&nbsp;&nbsp;
                     <span class="song-title">{item["biisi"]}</span>&nbsp;&nbsp;
                     {key_b}{trans_b}{capo_b}
-                </div>''',
-                unsafe_allow_html=True
+                </div>''', unsafe_allow_html=True
             )
-
             if has_pdf:
                 pdf_obj = st.session_state["pdfs"][num]
                 st.caption(f"📄 {pdf_obj['filename']} — {pdf_obj['pages']} sivu(a)")
                 download_link(pdf_obj["bytes"], pdf_obj["filename"])
-
-                # ✅ Streamlit 1.55+ käyttää width= parametria
                 for idx, img in enumerate(pdf_obj["images"]):
                     st.image(img, caption=f"Sivu {idx+1}", width="stretch")
             else:
@@ -220,4 +206,4 @@ with tab_drive:
 with tab_settings:
     st.subheader("🔄 Transponointi")
     st.info("🔜 Rakennetaan vaiheessa 4.")
-    st.caption("Keikkasetti Manager v0.4")
+    st.caption("Keikkasetti Manager v0.5")
