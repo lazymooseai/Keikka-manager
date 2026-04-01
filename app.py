@@ -424,7 +424,7 @@ with tab_drive:
             with col_nr:
                 st.markdown(f"**{i}**")
             with col_song:
-                st.markdown(f"**{title}**  
+                st.markdown("**{title}**  
 {artist}")
 
             if match:
