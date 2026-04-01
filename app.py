@@ -422,9 +422,9 @@ with tab_drive:
             col_nr, col_song, col_pdf, col_actions = st.columns([0.5, 2.5, 3, 2])
 
             with col_nr:
-                st.markdown(f"**{i}**")
+                st.markdown("**{i}**")
             with col_song:
-                st.markdown(f"**{title}**  
+                st.markdown("**title}**  
 {artist}")
 
             if match:
